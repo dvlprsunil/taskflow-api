@@ -43,11 +43,23 @@ npm test             # runs the test suite against taskflow_test
 | Method | Endpoint      | Description        |
 |--------|---------------|--------------------|
 | GET    | `/health`     | Health check       |
-| GET    | `/tasks`      | List all tasks     |
+| GET    | `/tasks`      | List tasks (paginated) |
 | GET    | `/tasks/:id`  | Get a single task  |
 | POST   | `/tasks`      | Create a task      |
 | PATCH  | `/tasks/:id`  | Update a task      |
 | DELETE | `/tasks/:id`  | Delete a task      |
+
+### Pagination `GET /tasks`
+
+`GET /tasks` accepts `?page` (default 1) and `?limit` (default 20, max 100)
+and responds with:
+
+```json
+{
+  "data": [ /* tasks */ ],
+  "pagination": { "page": 1, "limit": 20, "total": 42, "totalPages": 3, "hasNextPage": true }
+}
+```
 
 ### Example
 
@@ -75,7 +87,7 @@ tests/
 
 - [ ] User authentication (JWT)
 - [ ] Search and filtering
-- [ ] Pagination
+- [x] Pagination
 
 ## License
 

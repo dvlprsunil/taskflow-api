@@ -28,12 +28,46 @@ function isValidId(id) {
 // Wraps async handlers so rejected promises reach the error handler
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-// GET /tasks - list all tasks
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+
+function parsePagination(query) {
+  let page = parseInt(query.page, 10);
+  let limit = parseInt(query.limit, 10);
+  if (!Number.isInteger(page) || page < 1) page = 1;
+  if (!Number.isInteger(limit) || limit < 1) limit = DEFAULT_LIMIT;
+  if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+  const offset = (page - 1) * limit;
+  return { page, limit, offset };
+}
+
+// GET /tasks - list tasks, paginated
+//   ?page=1&limit=20
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { rows } = await db.query('SELECT * FROM tasks ORDER BY created_at DESC, id DESC');
-    res.json(rows);
+    const { page, limit, offset } = parsePagination(req.query);
+
+    const totalResult = await db.query('SELECT COUNT(*)::int AS count FROM tasks');
+    const total = totalResult.rows[0].count;
+
+    const { rows } = await db.query(
+      'SELECT * FROM tasks ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    );
+
+    const totalPages = Math.floor(total / limit);
+
+    res.json({
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+      },
+    });
   })
 );
 
