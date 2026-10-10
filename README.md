@@ -7,6 +7,7 @@ A RESTful task management API built with **Node.js**, **Express**, and **Postgre
 - Create, read, update, and delete tasks
 - Task status tracking (`todo`, `in_progress`, `done`)
 - Due dates
+- Search and filter by status, text, and due date
 - Input validation and parameterized queries
 - Automated tests with Jest and Supertest
 
@@ -43,11 +44,22 @@ npm test             # runs the test suite against taskflow_test
 | Method | Endpoint      | Description        |
 |--------|---------------|--------------------|
 | GET    | `/health`     | Health check       |
-| GET    | `/tasks`      | List all tasks     |
+| GET    | `/tasks`      | List tasks (supports filters below) |
 | GET    | `/tasks/:id`  | Get a single task  |
 | POST   | `/tasks`      | Create a task      |
 | PATCH  | `/tasks/:id`  | Update a task      |
 | DELETE | `/tasks/:id`  | Delete a task      |
+
+### Filtering `GET /tasks`
+
+| Query param  | Example                 | Description                                  |
+|--------------|-------------------------|----------------------------------------------|
+| `status`     | `?status=in_progress`   | Only tasks with this status                  |
+| `q`          | `?q=login`              | Case-insensitive match on title/description  |
+| `due_before` | `?due_before=2026-10-31`| Tasks due on or before this date             |
+| `due_after`  | `?due_after=2026-10-01` | Tasks due on or after this date              |
+
+Filters can be combined.
 
 ### Example
 
@@ -74,7 +86,7 @@ tests/
 ## Roadmap
 
 - [ ] User authentication (JWT)
-- [ ] Search and filtering
+- [x] Search and filtering
 - [ ] Pagination
 
 ## License

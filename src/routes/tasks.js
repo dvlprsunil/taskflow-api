@@ -28,11 +28,50 @@ function isValidId(id) {
 // Wraps async handlers so rejected promises reach the error handler
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-// GET /tasks - list all tasks
+// GET /tasks - list tasks, optionally filtered
+//   ?status=todo|in_progress|done
+//   ?q=text            case-insensitive match on title or description
+//   ?due_before=DATE   tasks due on or before DATE
+//   ?due_after=DATE    tasks due on or after DATE
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { rows } = await db.query('SELECT * FROM tasks ORDER BY created_at DESC, id DESC');
+    const { status, q, due_before, due_after } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (status !== undefined) {
+      if (!VALID_STATUSES.includes(status)) {
+        return res
+          .status(400)
+          .json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+      }
+      params.push(status);
+      conditions.push(`status = $${params.length}`);
+    }
+
+    if (q !== undefined && q.trim() !== '') {
+      const term = q.trim();
+      conditions.push(`(title ILIKE '%${term}%' OR description ILIKE '%${term}%')`);
+    }
+
+    for (const [name, value, op] of [
+      ['due_before', due_before, '<='],
+      ['due_after', due_after, '>='],
+    ]) {
+      if (value === undefined) continue;
+      if (isNaN(Date.parse(value))) {
+        return res.status(400).json({ error: `${name} must be a valid date` });
+      }
+      params.push(value);
+      conditions.push(`due_date ${op} $${params.length}`);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const { rows } = await db.query(
+      `SELECT * FROM tasks ${where} ORDER BY created_at DESC, id DESC`,
+      params
+    );
     res.json(rows);
   })
 );
