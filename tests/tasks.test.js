@@ -47,7 +47,8 @@ describe('Tasks API', () => {
     await request(app).post('/tasks').send({ title: 'Two' });
     const res = await request(app).get('/tasks');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.pagination.total).toBe(2);
   });
 
   test('GET /tasks/:id returns 404 for unknown id', async () => {
@@ -74,5 +75,51 @@ describe('Tasks API', () => {
     expect(del.status).toBe(204);
     const get = await request(app).get(`/tasks/${created.body.id}`);
     expect(get.status).toBe(404);
+  });
+
+  describe('GET /tasks pagination', () => {
+    beforeEach(async () => {
+      for (let i = 1; i <= 5; i++) {
+        await request(app).post('/tasks').send({ title: `Task ${i}` });
+      }
+    });
+
+    test('defaults to page 1', async () => {
+      const res = await request(app).get('/tasks');
+      expect(res.body.pagination.page).toBe(1);
+      expect(res.body.pagination.limit).toBe(20);
+      expect(res.body.data).toHaveLength(5);
+    });
+
+    test('respects a custom limit', async () => {
+      const res = await request(app).get('/tasks?limit=2');
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.pagination.limit).toBe(2);
+      expect(res.body.pagination.total).toBe(5);
+    });
+
+    test('returns the requested page', async () => {
+      const page1 = await request(app).get('/tasks?limit=2&page=1');
+      const page3 = await request(app).get('/tasks?limit=2&page=3');
+      expect(page1.body.data).toHaveLength(2);
+      expect(page3.body.data).toHaveLength(1);
+      expect(page3.body.pagination.page).toBe(3);
+    });
+
+    test('caps the limit at 100', async () => {
+      const res = await request(app).get('/tasks?limit=5000');
+      expect(res.body.pagination.limit).toBe(100);
+    });
+
+    test('falls back to defaults for invalid params', async () => {
+      const res = await request(app).get('/tasks?page=abc&limit=-4');
+      expect(res.body.pagination.page).toBe(1);
+      expect(res.body.pagination.limit).toBe(20);
+    });
+
+    test('reports the total page count for an exact multiple', async () => {
+      const res = await request(app).get('/tasks?limit=5');
+      expect(res.body.pagination.totalPages).toBe(1);
+    });
   });
 });
