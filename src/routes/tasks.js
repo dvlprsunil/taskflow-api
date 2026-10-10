@@ -28,11 +28,14 @@ function isValidId(id) {
 // Wraps async handlers so rejected promises reach the error handler
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-// GET /tasks - list all tasks
+// GET /tasks - list the current user's tasks
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { rows } = await db.query('SELECT * FROM tasks ORDER BY created_at DESC, id DESC');
+    const { rows } = await db.query(
+      'SELECT * FROM tasks WHERE user_id = $1 ORDER BY created_at DESC, id DESC',
+      [req.user.id]
+    );
     res.json(rows);
   })
 );
@@ -42,7 +45,10 @@ router.get(
   '/:id',
   asyncHandler(async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid task id' });
-    const { rows } = await db.query('SELECT * FROM tasks WHERE id = $1', [req.params.id]);
+    const { rows } = await db.query('SELECT * FROM tasks WHERE id = $1 AND user_id = $2', [
+      req.params.id,
+      req.user.id,
+    ]);
     if (rows.length === 0) return res.status(404).json({ error: 'Task not found' });
     res.json(rows[0]);
   })
@@ -57,10 +63,10 @@ router.post(
 
     const { title, description = '', status = 'todo', due_date = null } = req.body;
     const { rows } = await db.query(
-      `INSERT INTO tasks (title, description, status, due_date)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO tasks (title, description, status, due_date, user_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [title.trim(), description, status, due_date]
+      [title.trim(), description, status, due_date, req.user.id]
     );
     res.status(201).json(rows[0]);
   })
@@ -72,7 +78,10 @@ router.patch(
   asyncHandler(async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid task id' });
 
-    const existing = await db.query('SELECT * FROM tasks WHERE id = $1', [req.params.id]);
+    const existing = await db.query('SELECT * FROM tasks WHERE id = $1 AND user_id = $2', [
+      req.params.id,
+      req.user.id,
+    ]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Task not found' });
 
     const errors = validateTask(req.body, { partial: true });
@@ -102,7 +111,10 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     if (!isValidId(req.params.id)) return res.status(400).json({ error: 'Invalid task id' });
-    const result = await db.query('DELETE FROM tasks WHERE id = $1', [req.params.id]);
+    const result = await db.query('DELETE FROM tasks WHERE id = $1 AND user_id = $2', [
+      req.params.id,
+      req.user.id,
+    ]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Task not found' });
     res.status(204).send();
   })
