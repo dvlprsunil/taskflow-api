@@ -66,7 +66,11 @@ src/
   db.js           PostgreSQL connection pool
   migrate.js      Applies schema.sql
   schema.sql      Database schema
-  routes/tasks.js Task endpoints
+  routes/tasks.js             Route definitions
+  controllers/tasksController.js  Request/response handling
+  services/tasksService.js        Database access
+  validators/task.js              Input validation
+  utils/asyncHandler.js           Async error wrapper
 tests/
   tasks.test.js   API tests
 ```
