@@ -75,4 +75,50 @@ describe('Tasks API', () => {
     const get = await request(app).get(`/tasks/${created.body.id}`);
     expect(get.status).toBe(404);
   });
+
+  describe('GET /tasks filters', () => {
+    beforeEach(async () => {
+      await request(app)
+        .post('/tasks')
+        .send({ title: 'Write docs', description: 'API reference', due_date: '2026-10-01' });
+      await request(app)
+        .post('/tasks')
+        .send({ title: 'Fix login bug', status: 'in_progress', due_date: '2026-10-20' });
+      await request(app).post('/tasks').send({ title: 'Release v1', status: 'done' });
+    });
+
+    test('filters by status', async () => {
+      const res = await request(app).get('/tasks?status=in_progress');
+      expect(res.status).toBe(200);
+      expect(res.body.map((t) => t.title)).toEqual(['Fix login bug']);
+    });
+
+    test('rejects an invalid status', async () => {
+      const res = await request(app).get('/tasks?status=blocked');
+      expect(res.status).toBe(400);
+    });
+
+    test('searches title and description case-insensitively', async () => {
+      const byTitle = await request(app).get('/tasks?q=LOGIN');
+      expect(byTitle.body.map((t) => t.title)).toEqual(['Fix login bug']);
+
+      const byDescription = await request(app).get('/tasks?q=reference');
+      expect(byDescription.body.map((t) => t.title)).toEqual(['Write docs']);
+    });
+
+    test('filters by due date range', async () => {
+      const res = await request(app).get('/tasks?due_after=2026-10-05&due_before=2026-10-31');
+      expect(res.body.map((t) => t.title)).toEqual(['Fix login bug']);
+    });
+
+    test('rejects an invalid date', async () => {
+      const res = await request(app).get('/tasks?due_before=not-a-date');
+      expect(res.status).toBe(400);
+    });
+
+    test('combines filters', async () => {
+      const res = await request(app).get('/tasks?status=todo&q=docs');
+      expect(res.body.map((t) => t.title)).toEqual(['Write docs']);
+    });
+  });
 });
